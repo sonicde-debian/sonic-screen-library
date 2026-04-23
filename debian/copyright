@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: libkscreen
-Source: https://invent.kde.org/plasma/libkscreen
-Upstream-Contact: plasma-devel@kde.org
+Upstream-Name: sonic-screen-library
+Source: https://github.com/Sonic-DE/sonic-screen-library
+Upstream-Contact: https://github.com/Sonic-DE
 
 Files: *
 Copyright: 2022, Aleix Pol Gonzalez <aleixpol@kde.org
