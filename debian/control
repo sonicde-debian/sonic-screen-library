@@ -1,0 +1,128 @@
+Source: sonic-screen-library
+Section: libs
+Maintainer: Debian Qt/KDE Maintainers <debian-qt-kde@lists.debian.org>
+Uploaders: Aurélien COUDERC <coucouf@debian.org>,
+           Patrick Franz <deltaone@debian.org>,
+Build-Depends: debhelper-compat (= 13),
+               dh-sequence-kf6,
+               dh-sequence-pkgkde-symbolshelper,
+               cmake (>= 3.16~),
+               doxygen,
+               extra-cmake-modules (>= 6.22.0~),
+               libx11-dev,
+               libx11-xcb-dev,
+               libxcb-dpms0-dev,
+               libxcb-randr0-dev,
+               libxcb1-dev,
+               libxkbcommon-dev,
+               libxrandr-dev,
+               pkgconf,
+               plasma-wayland-protocols (>= 1.20~) [linux-any],
+               qt6-base-dev (>= 6.10.0~),
+               qt6-base-private-dev (>= 6.6.0+dfsg~),
+               qt6-tools-dev (>= 6.6.0~),
+               qt6-wayland-dev (>= 6.10.0~) [linux-any],
+Standards-Version: 4.7.3
+Homepage: https://github.com/Sonic-DE/sonic-screen-library
+Vcs-Browser: https://github.com/sonicde-debian/sonic-screen-library
+Vcs-Git: https://github.com/sonicde-debian/sonic-screen-library.git
+
+Package: sonic-screen-library
+Architecture: any
+Multi-Arch: foreign
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+Breaks: libkf5screen-bin,
+        libkf6screen-bin,
+        libkscreen-bin,
+Replaces: libkf5screen-bin,
+          libkf6screen-bin,
+          libkscreen-bin,
+Description: library for screen management - helpers
+ sonic-screen-library is the screen management library for SonicDE
+ Workspaces. Its primary consumer is the SonicDE screen management
+ application sonic-screen.
+ .
+ This package contains the library helpers and the corresponding D-Bus service.
+
+Package: libsonicscreen8
+Architecture: any
+Multi-Arch: same
+Depends: sonic-screen-library-data (= ${source:Version}),
+         ${misc:Depends},
+         ${shlibs:Depends},
+Recommends: pnp.ids,
+Breaks: libkf6screen8,
+Replaces: libkf6screen8,
+Description: library for screen management - shared library
+ sonic-screen-library is the screen management library for SonicDE
+ Workspaces. Its primary consumer is the SonicDE screen management
+ application sonic-screen.
+ .
+ This package contains the shared library
+
+Package: libsonicscreendpms8
+Architecture: any
+Multi-Arch: same
+Depends: sonic-screen-library-data (= ${source:Version}),
+         ${misc:Depends},
+         ${shlibs:Depends},
+Breaks: libkf6screendpms8,
+Replaces: libkf6screendpms8,
+Description: library for screen management - dpms support library
+ sonic-screen-library is the screen management library for SonicDE
+ Workspaces. Its primary consumer is the SonicDE screen management
+ application sonic-screen.
+ .
+ This package contains the dpms support shared library
+
+Package: sonic-screen-library-data
+Architecture: all
+Multi-Arch: foreign
+Depends: ${misc:Depends},
+Breaks: libkf6screen-data,
+        libkscreen-data,
+Replaces: libkf6screen-data,
+          libkscreen-data,
+Description: library for screen management - data files
+ sonic-screen-library is the screen management library for SonicDE
+ Workspaces. Its primary consumer is the SonicDE screen management
+ application sonic-screen.
+ .
+ This package contains data files.
+
+Package: sonic-screen-library-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends: libsonicscreen8 (= ${binary:Version}),
+         libsonicscreendpms8 (= ${binary:Version}),
+         qt6-base-dev (>= 6.10.0~),
+         ${misc:Depends},
+Recommends: sonic-screen-library-doc (= ${source:Version}),
+Breaks: libkf6screen-dev,
+        libkscreen-dev,
+Replaces: libkf6screen-dev,
+          libkscreen-dev,
+Description: library for screen management - development files
+ sonic-screen-library is the screen management library for SonicDE
+ Workspaces. Its primary consumer is the SonicDE screen management
+ application sonic-screen.
+ .
+ This package contains the files necessary for development.
+
+Package: sonic-screen-library-doc
+Section: doc
+Architecture: all
+Multi-Arch: foreign
+Depends: ${misc:Depends},
+Breaks: libkf6screen-doc,
+        libkscreen-doc,
+Replaces: libkf6screen-doc,
+          libkscreen-doc,
+Description: library for screen management - documentation
+ sonic-screen-library is the screen management library for SonicDE
+ Workspaces. Its primary consumer is the SonicDE screen management
+ application sonic-screen.
+ .
+ This package contains the QCH documentation files.
