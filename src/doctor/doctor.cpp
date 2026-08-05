@@ -10,6 +10,8 @@
 
 #include <QCollator>
 #include <QCoreApplication>
+#include <QDBusConnection>
+#include <QDBusMessage>
 #include <QDateTime>
 #include <QFile>
 #include <QGuiApplication>
@@ -210,7 +212,29 @@ void Doctor::parseOutputArgs()
         if (ops.count() > 2) {
             bool ok;
             if (ops[0] == QLatin1String("output")) {
-                OutputPtr output = findOutput(ops[1]);
+                QString outputQuery = ops[1];
+
+                // handle "activeOutput" as an ID to operate on the current active display
+                if (outputQuery == QLatin1String("activeOutput")) {
+                    QDBusMessage message = QDBusMessage::createMethodCall(QStringLiteral("org.kde.KWin"),
+                                                                          QStringLiteral("/KWin"),
+                                                                          QStringLiteral("org.kde.KWin"),
+                                                                          QStringLiteral("activeOutputName"));
+
+                    auto reply = QDBusConnection::sessionBus().call(message);
+                    if (reply.type() == QDBusMessage::ErrorMessage) {
+                        qCWarning(KSCREEN_DOCTOR) << "DBus error from KWin:" << reply.errorName() << reply.errorMessage();
+                        return;
+                    }
+                    auto args = reply.arguments();
+                    if (args.isEmpty()) {
+                        qCWarning(KSCREEN_DOCTOR) << "activeOutputName returned no arguments";
+                        return;
+                    }
+                    outputQuery = args.first().toString();
+                }
+
+                OutputPtr output = findOutput(outputQuery);
                 if (!output) {
                     qApp->exit(3);
                     return;
@@ -367,17 +391,37 @@ void Doctor::parseOutputArgs()
                         qApp->exit(9);
                         return;
                     }
+                } else if (ops.count() == 4 && subcmd == "hdrAndWcg") {
+                    const QString _enable = ops[3].toLower();
+                    if (_enable == "enable") {
+                        setHdrEnabled(output, true);
+                        setWcgEnabled(output, true);
+                    } else if (_enable == "disable") {
+                        setHdrEnabled(output, false);
+                        setWcgEnabled(output, false);
+                    } else if (_enable == "toggle") {
+                        // HDR and Wcg couple should be in the same state, so we base the Wcg value on HDR's value
+                        bool isHdrEnabled = output->isHdrEnabled();
+                        setHdrEnabled(output, !isHdrEnabled);
+                        setWcgEnabled(output, !isHdrEnabled);
+                    } else {
+                        qCWarning(KSCREEN_DOCTOR) << "Wrong input: Only allowed values for hdrAndWcg are \"enable\", \"disable\" and \"toggle\"";
+                        qApp->exit(9);
+                        return;
+                    }
                 } else if (ops.count() >= 4 && subcmd == "iccprofile") {
                     QString profilePath = ops[3];
                     for (uint32_t i = 4; i < ops.size(); i++) {
                         profilePath += "." + ops[i];
                     }
                     output->setIccProfilePath(profilePath);
-                    if (profilePath.isEmpty()) {
-                        output->setColorProfileSource(Output::ColorProfileSource::sRGB);
-                    } else {
-                        output->setColorProfileSource(Output::ColorProfileSource::ICC);
+                    m_changed = true;
+                } else if (ops.count() >= 4 && subcmd == "hdrIccProfile") {
+                    QString profilePath = ops[3];
+                    for (uint32_t i = 4; i < ops.size(); i++) {
+                        profilePath += "." + ops[i];
                     }
+                    output->setHdrIccProfilePath(profilePath);
                     m_changed = true;
                 } else if (ops.count() >= 4 && subcmd == "sdrGamut") {
                     const uint32_t wideness = ops[3].toUInt();
@@ -431,6 +475,17 @@ void Doctor::parseOutputArgs()
                         output->setColorProfileSource(Output::ColorProfileSource::EDID);
                     } else {
                         qCWarning(KSCREEN_DOCTOR) << "Wrong input: only allowed values for colorProfileSource are \"sRGB\", \"ICC\" and \"EDID\"";
+                        qApp->exit(9);
+                        return;
+                    }
+                    m_changed = true;
+                } else if (ops.count() >= 4 && subcmd == "hdrColorProfileSource") {
+                    if (ops[3] == "ICC") {
+                        output->setHdrColorProfileSource(Output::ColorProfileSource::ICC);
+                    } else if (ops[3] == "EDID") {
+                        output->setHdrColorProfileSource(Output::ColorProfileSource::EDID);
+                    } else {
+                        qCWarning(KSCREEN_DOCTOR) << "Wrong input: only allowed values for hdrColorProfileSource are \"ICC\" and \"EDID\"";
                         qApp->exit(9);
                         return;
                     }
@@ -563,6 +618,28 @@ void Doctor::parseOutputArgs()
                         qApp->exit(9);
                         return;
                     }
+                    m_changed = true;
+                } else if (ops.count() == 4 && subcmd == "autoRotatePolicy") {
+                    if (ops[3] == "never") {
+                        setAutoRotatePolicy(output, KScreen::Output::AutoRotatePolicy::Never);
+                    } else if (ops[3] == "inTabletMode") {
+                        setAutoRotatePolicy(output, KScreen::Output::AutoRotatePolicy::InTabletMode);
+                    } else if (ops[3] == "always") {
+                        setAutoRotatePolicy(output, KScreen::Output::AutoRotatePolicy::Always);
+                    } else {
+                        qCWarning(KSCREEN_DOCTOR) << "Invalid input: Only 'never', 'inTabletMode', and 'always' are allowed";
+                        qApp->exit(9);
+                        return;
+                    }
+                } else if (ops.count() >= 4 && subcmd == "abm") {
+                    bool ok = false;
+                    const uint32_t level = ops[3].toUInt(&ok);
+                    if (level >= 5 || !ok) {
+                        qCWarning(KSCREEN_DOCTOR) << "Invalid input: Allowed values for abm level are 0, 1, 2, 3, 4";
+                        qApp->exit(9);
+                        return;
+                    }
+                    output->setAbmLevel(level);
                     m_changed = true;
                 } else {
                     cerr << "Unable to parse arguments: " << op << Qt::endl;
@@ -733,6 +810,32 @@ void Doctor::showOutputs() const
                     cout << yellow << ", overridden with: " << cr << (*used) / 10'000.0 << " nits";
                 }
                 cout << endl;
+
+                cout << yellow << "\t\tHDR color profile source: ";
+                if (output->capabilities() & Output::Capability::HdrIccProfile) {
+                    cout << cr;
+                    switch (output->hdrColorProfileSource()) {
+                    case Output::ColorProfileSource::sRGB:
+                        cout << "sRGB";
+                        break;
+                    case Output::ColorProfileSource::ICC:
+                        cout << "ICC";
+                        break;
+                    case Output::ColorProfileSource::EDID:
+                        cout << "EDID";
+                        break;
+                    }
+                    cout << endl;
+
+                    cout << yellow << "\t\tHDR ICC profile: ";
+                    if (!output->hdrIccProfilePath().isEmpty()) {
+                        cout << cr << output->hdrIccProfilePath() << endl;
+                    } else {
+                        cout << cr << "none" << endl;
+                    }
+                } else {
+                    cout << cr << "incapable" << endl;
+                }
             } else {
                 cout << cr << "disabled" << endl;
             }
@@ -846,6 +949,28 @@ void Doctor::showOutputs() const
         } else {
             cout << cr << "unsupported" << endl;
         }
+        cout << yellow << "\tAuto Rotate Policy: ";
+        if (output->capabilities() & Output::Capability::AutoRotation) {
+            switch (output->autoRotatePolicy()) {
+            case Output::AutoRotatePolicy::Never:
+                cout << cr << "never" << endl;
+                break;
+            case Output::AutoRotatePolicy::InTabletMode:
+                cout << cr << "inTabletMode" << endl;
+                break;
+            case Output::AutoRotatePolicy::Always:
+                cout << cr << "always" << endl;
+            }
+        } else {
+            cout << cr << "incapable" << endl;
+        }
+
+        cout << yellow << "\tAdaptive backlight modulation: ";
+        if (output->capabilities() & Output::Capability::AbmLevel) {
+            cout << cr << "supported, set to " << output->abmLevel() << endl;
+        } else {
+            cout << cr << "unsupported" << endl;
+        }
     }
 }
 
@@ -951,6 +1076,12 @@ void Doctor::setSdrBrightness(OutputPtr output, uint32_t brightness)
 void Doctor::setWcgEnabled(OutputPtr output, bool enable)
 {
     output->setWcgEnabled(enable);
+    m_changed = true;
+}
+
+void Doctor::setAutoRotatePolicy(OutputPtr output, KScreen::Output::AutoRotatePolicy policy)
+{
+    output->setAutoRotatePolicy(policy);
     m_changed = true;
 }
 
