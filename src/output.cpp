@@ -69,6 +69,7 @@ public:
         , wideColorGamut(other.wideColorGamut)
         , autoRotatePolicy(other.autoRotatePolicy)
         , iccProfilePath(other.iccProfilePath)
+        , hdrIccProfilePath(other.hdrIccProfilePath)
         , sdrGamutWideness(other.sdrGamutWideness)
         , maxPeakBrightness(other.maxPeakBrightness)
         , maxAverageBrightness(other.maxAverageBrightness)
@@ -77,6 +78,7 @@ public:
         , maxAverageBrightnessOverride(other.maxAverageBrightnessOverride)
         , minBrightnessOverride(other.minBrightnessOverride)
         , colorProfileSource(other.colorProfileSource)
+        , hdrColorProfileSource(other.hdrColorProfileSource)
         , brightness(other.brightness)
         , colorPowerPreference(other.colorPowerPreference)
         , dimming(other.dimming)
@@ -89,6 +91,7 @@ public:
         , sharpness(other.sharpness)
         , customModes(other.customModes)
         , automaticBrightness(other.automaticBrightness)
+        , abmLevel(other.abmLevel)
     {
         const auto otherModeList = other.modeList;
         for (const ModePtr &otherMode : otherModeList) {
@@ -137,6 +140,7 @@ public:
     bool wideColorGamut = false;
     AutoRotatePolicy autoRotatePolicy = AutoRotatePolicy::InTabletMode;
     QString iccProfilePath;
+    QString hdrIccProfilePath;
     double sdrGamutWideness = 0;
     double maxPeakBrightness = 0;
     double maxAverageBrightness = 0;
@@ -145,6 +149,7 @@ public:
     std::optional<double> maxAverageBrightnessOverride;
     std::optional<double> minBrightnessOverride;
     ColorProfileSource colorProfileSource = ColorProfileSource::sRGB;
+    ColorProfileSource hdrColorProfileSource = ColorProfileSource::sRGB;
     double brightness = 1.0;
     ColorPowerTradeoff colorPowerPreference = ColorPowerTradeoff::PreferEfficiency;
     double dimming = 1.0;
@@ -157,6 +162,7 @@ public:
     double sharpness = 0;
     QList<ModeInfo> customModes;
     bool automaticBrightness = false;
+    uint32_t abmLevel = 0;
 };
 
 bool Output::Private::compareModeList(const ModeList &before, const ModeList &after)
@@ -809,6 +815,19 @@ void Output::setIccProfilePath(const QString &path)
     }
 }
 
+QString Output::hdrIccProfilePath() const
+{
+    return d->hdrIccProfilePath;
+}
+
+void Output::setHdrIccProfilePath(const QString &path)
+{
+    if (d->hdrIccProfilePath != path) {
+        d->hdrIccProfilePath = path;
+        Q_EMIT hdrIccProfilePathChanged();
+    }
+}
+
 double Output::sdrGamutWideness() const
 {
     return d->sdrGamutWideness;
@@ -910,6 +929,19 @@ void Output::setColorProfileSource(ColorProfileSource source)
     if (d->colorProfileSource != source) {
         d->colorProfileSource = source;
         Q_EMIT colorProfileSourceChanged();
+    }
+}
+
+Output::ColorProfileSource Output::hdrColorProfileSource() const
+{
+    return d->hdrColorProfileSource;
+}
+
+void Output::setHdrColorProfileSource(ColorProfileSource source)
+{
+    if (d->hdrColorProfileSource != source) {
+        d->hdrColorProfileSource = source;
+        Q_EMIT hdrColorProfileSourceChanged();
     }
 }
 
@@ -1066,6 +1098,19 @@ void Output::setAutomaticBrightness(bool enable)
     if (d->automaticBrightness != enable) {
         d->automaticBrightness = enable;
         Q_EMIT automaticBrightnessChanged();
+    }
+}
+
+uint32_t Output::abmLevel() const
+{
+    return d->abmLevel;
+}
+
+void Output::setAbmLevel(uint32_t level)
+{
+    if (d->abmLevel != level) {
+        d->abmLevel = level;
+        Q_EMIT abmLevelChanged();
     }
 }
 
@@ -1249,6 +1294,18 @@ void Output::apply(const OutputPtr &other)
     if (d->automaticBrightness != other->d->automaticBrightness) {
         changes << &Output::automaticBrightnessChanged;
         setAutomaticBrightness(other->d->automaticBrightness);
+    }
+    if (d->hdrIccProfilePath != other->d->hdrIccProfilePath) {
+        changes << &Output::hdrIccProfilePathChanged;
+        setHdrIccProfilePath(other->d->hdrIccProfilePath);
+    }
+    if (d->hdrColorProfileSource != other->d->hdrColorProfileSource) {
+        changes << &Output::hdrColorProfileSourceChanged;
+        setHdrColorProfileSource(other->d->hdrColorProfileSource);
+    }
+    if (d->abmLevel != other->d->abmLevel) {
+        changes << &Output::abmLevelChanged;
+        setAbmLevel(other->d->abmLevel);
     }
 
     // Non-notifyable changes
